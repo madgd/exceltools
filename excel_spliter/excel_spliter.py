@@ -35,6 +35,6 @@ def main():
 
 
 if __name__ == '__main__':
-    excel_path = "/Users/madgd/Downloads/短线交易明细2020年9月.xlsx"
+    excel_path = ""
     output_path = ""
     excelSplitBySheet(excel_path, output_path)

@@ -133,7 +133,6 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
                 writeLine(sheet, getCellValues(line), curr)
                 curr += 1
         workbook.save("%s/%s_%s.xls" % (outputPath, excelName, k))
-        return
 
 
 def main():

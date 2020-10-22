@@ -39,7 +39,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     # read excel
     wb = xlrd.open_workbook(filename=excelPath)
     excelName = ".".join(basename(excelPath).split(".")[:-1])
-    print(wb.sheet_names())
+    # print(wb.sheet_names())
 
 
     # get target sheet
@@ -64,14 +64,14 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
         if not found:
             err = "sheetNameKey not found"
             return False, err
-    print(targetSheet.name, targetSheet.nrows, targetSheet.ncols)
+    # print(targetSheet.name, targetSheet.nrows, targetSheet.ncols)
 
 
     # sheet header
     header = []
     for i in range(headLines):
         header.append(getCellValues(targetSheet.row(i)))
-    print(header)
+    # print(header)
 
 
     # split by cols
@@ -79,7 +79,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     cols2split = columnLabels.split(",")
     cols2splitNum = [titleToNumber(i) - 1 for i in cols2split]
     targetColnames = filterByList(header[-1], cols2splitNum)
-    print(targetColnames)
+    # print(targetColnames)
     # print(findColNumByName(header[-1], targetColnames))
     sheets = [targetSheet]
     # if split all sheet
@@ -95,10 +95,10 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
         tmpHeader = []
         for i in range(headLines):
             tmpHeader.append(getCellValues(sheet.row(i)))
-        print(tmpHeader)
+        # print(tmpHeader)
         headerBySheet[sheetName] = tmpHeader
         tmpCols2splitNum = findColNumByName(tmpHeader[-1], targetColnames)
-        print(tmpCols2splitNum)
+        # print(tmpCols2splitNum)
         #
         allRows = sheet.get_rows()
         for i in range(headLines):
@@ -123,7 +123,8 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
         workbook = xlwt.Workbook()
         for sheetName in sheetNames:
             sheet = workbook.add_sheet(sheetName)
-            rowGroupsBySheet[k][sheetName]
+            if sheetName not in rowGroupsBySheet[k]:
+                rowGroupsBySheet[k][sheetName] = []
             curr = 0
             # header
             for line in headerBySheet[sheetName]:
@@ -160,3 +161,4 @@ if __name__ == '__main__':
 
     excelSplitBySheet(args.excelPath, args.o, columnLabels=args.c, headLines=args.l, sheetNum=args.s,\
                       sheetNameKey=args.k ,allSheet=args.a)
+    print("split finished!")

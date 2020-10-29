@@ -85,7 +85,7 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
             if sheetNameKey:
                 found = False
                 for i in range(len(tmpSheetNames)):
-                    if sheetNameKey in sheetNames[i]:
+                    if sheetNameKey in tmpSheetNames[i]:
                         found = True
                         targetSheet = wb.sheet_by_index(i)
                         break
@@ -143,10 +143,6 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
     for index in range(len(sheetNames)):
         sheet = workbook.add_sheet(sheetNames[index])
         curr = 0
-        # print(index)
-        # print(headers)
-        # print(len(mergedRowsList))
-        # print(sheetNames)
         for line in headers[index]:
             writeLine(sheet, line, curr)
             curr += 1

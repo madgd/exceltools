@@ -32,10 +32,9 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     :param sheetNameKey: 按sheet名称的关键词找拆分表，默认为空。
     :param allSheet: 是否根据第一个sheet的拆分依据，自动找到其他表中相应的列，也进行拆分
     :param sheetLabels: 按传入的labels，同时对不同的sheet进行拆分。生成m*n个表。目前不生效
-    :return: 返回成功或失败，msg
+    :return: outputPath
     """
     err = ""
-    ret = True
     # read excel
     wb = xlrd.open_workbook(filename=excelPath)
     excelName = ".".join(basename(excelPath).split(".")[:-1])
@@ -52,7 +51,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
             targetSheet = wb.sheet_by_index(sheetNum - 1)
         else:
             err = "sheetNum err"
-            return False, err
+            return outputPath, err
     # if sheetNameKey set
     if sheetNameKey:
         found = False
@@ -63,7 +62,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
                 break
         if not found:
             err = "sheetNameKey not found"
-            return False, err
+            return outputPath, err
     # print(targetSheet.name, targetSheet.nrows, targetSheet.ncols)
 
 
@@ -135,7 +134,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
                 curr += 1
         workbook.save("%s/%s_%s.xls" % (outputPath, excelName, k))
 
-    return outputPath
+    return outputPath, err
 
 def main():
     print("in main")

@@ -147,8 +147,10 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
             writeLine(sheet, line, curr)
             curr += 1
         for line in mergedRowsList[index]:
-            writeLine(sheet, getCellValues(line), curr)
-            curr += 1
+            # remove empty line
+            if line:
+                writeLine(sheet, getCellValues(line), curr)
+                curr += 1
     workbook.save(outputPath)
 
     return outputPath, err

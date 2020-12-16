@@ -47,3 +47,14 @@ def findColNumByName(row, targetColnames):
     :return:
     """
     return [row.index(name) for name in targetColnames]
+
+def checkEmptyLine(cols):
+    """
+
+    :param line:
+    :return:
+    """
+    for i in cols:
+        if i.ctype not in [0, 5, 6]:
+            return False
+    return True

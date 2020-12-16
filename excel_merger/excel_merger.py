@@ -14,7 +14,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 import argparse
 import xlrd, xlwt
-from utils.utils import writeLine, getCellValues
+from utils.utils import writeLine, getCellValues, checkEmptyLine
 from os.path import basename, dirname, abspath
 import time
 
@@ -148,7 +148,7 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
             curr += 1
         for line in mergedRowsList[index]:
             # remove empty line
-            if line:
+            if not checkEmptyLine(line):
                 writeLine(sheet, getCellValues(line), curr)
                 curr += 1
     workbook.save(outputPath)

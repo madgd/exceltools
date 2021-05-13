@@ -20,7 +20,7 @@ import time
 
 
 def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheetNameKey="",
-                      allSheet=False, rmDup=False, nameKey=""):
+                      allSheet=False, rmDup=False, nameKey="", styles=False):
     """
     input folder, merge all excels to 1
     :param excelFolder: input excel files‘ folder
@@ -31,6 +31,7 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
     :param allSheet: if set true, merge all sheet by sheetNum
     :param rmDup: if set ture, remove dup line
     :param nameKey: if set, only merge excels that contains this key
+    :param styles: 保存原表格式
     :return:
     """
     err = ""
@@ -56,6 +57,13 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
     columnDimsBySheet = []
     # filter
     filterBySheet = []
+    # freeze
+    freezeBySheet = []
+    # merge(only support in header)
+    mergedBySheet = []
+    # zoom
+    viewsBySheet = []
+
     for file in files:
         # todo: search files recursively
         if not os.path.isdir("%s/%s" % (absPath, file)):
@@ -116,9 +124,13 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
                 for i in range(headLines):
                     tmpHeader.append(targetSheet[i+1])
                 headers.append(tmpHeader)
-                validationsBySheet.append(targetSheet.data_validations.dataValidation)
-                columnDimsBySheet.append(targetSheet.column_dimensions)
-                filterBySheet.append(targetSheet.auto_filter)
+                if styles:
+                    validationsBySheet.append(targetSheet.data_validations.dataValidation)
+                    columnDimsBySheet.append(targetSheet.column_dimensions)
+                    filterBySheet.append(targetSheet.auto_filter)
+                    freezeBySheet.append(targetSheet.freeze_panes)
+                    mergedBySheet.append(targetSheet.merged_cells)
+                    viewsBySheet.append(targetSheet.sheet_view)
             # rows
             if index >= len(mergedRowsList):
                 mergedRowsList.append([])
@@ -152,20 +164,27 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
     del workbook['Sheet']
     for index in range(len(sheetNames)):
         sheet = workbook.create_sheet(sheetNames[index])
-        # validation
-        sheet.data_validations.dataValidation = validationsBySheet[index]
-        # col_dims
-        sheet.column_dimensions = columnDimsBySheet[index]
-        # filter
-        sheet.auto_filter = filterBySheet[index]
+        if styles:
+            # validation
+            sheet.data_validations.dataValidation = validationsBySheet[index]
+            # col_dims
+            sheet.column_dimensions = columnDimsBySheet[index]
+            # filter
+            sheet.auto_filter = filterBySheet[index]
+            # freeze
+            sheet.freeze_panes = freezeBySheet[index]
+            # merged
+            sheet.merged_cells = mergedBySheet[index]
+            # zoom
+            sheet.sheet_view.zoomScale = viewsBySheet[index].zoomScale
         curr = 0
         for line in headers[index]:
-            copyLine(sheet, line, curr)
+            copyLine(sheet, line, curr, styles=styles)
             curr += 1
         for line in mergedRowsList[index]:
             # remove empty line
             if not checkEmptyLine(line):
-                copyLine(sheet, line, curr)
+                copyLine(sheet, line, curr, styles=styles)
                 curr += 1
     workbook.save(outputPath)
 
@@ -179,7 +198,7 @@ if __name__ == '__main__':
                         help='output path, default input root folder')
     parser.add_argument('-l', metavar='headLines', type=int, default=1,
                         help='header lines, default 1')
-    parser.add_argument('-s', metavar='sheetNum', type=int, default=1,
+    parser.add_argument('-sn', metavar='sheetNum', type=int, default=1,
                         help='which sheet to merge, default 1')
     parser.add_argument('-k', metavar='sheetNameKey', type=str, default="",
                         help='which sheet to merge, search by key. won`t work if not set')
@@ -189,10 +208,12 @@ if __name__ == '__main__':
                         help='if set, remove dup line. default not')
     parser.add_argument('-n', metavar='excelNameKey', type=str, default="",
                         help='if set, only merge excels that contains this key')
+    parser.add_argument('-s', action='store_true',
+                        help='if set, keep styles. default not')
     args = parser.parse_args()
 
-    outputPath, err = excelMergeBySheet(args.excelFolder, args.o, headLines=args.l, sheetNum=args.s, sheetNameKey=args.k, \
-                      allSheet=args.a, rmDup=args.d, nameKey=args.n)
+    outputPath, err = excelMergeBySheet(args.excelFolder, args.o, headLines=args.l, sheetNum=args.sn, sheetNameKey=args.k, \
+                      allSheet=args.a, rmDup=args.d, nameKey=args.n, styles=args.s)
     if err:
         print("merge failed because: %s(%s)" % (err, outputPath))
     else:

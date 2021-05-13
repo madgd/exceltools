@@ -37,7 +37,7 @@ def getCellValues(cols):
     # cell.value can be None
     return [cell.value if cell.data_type in ['s', 'f', 'n', 'inlineStr', 'str'] and cell.value else "" for cell in cols]
 
-def copyLine(sheet, line, row=0, startCol=0):
+def copyLine(sheet, line, row=0, startCol=0, styles=False):
     """
     copy one line with styles
     :param sheet:
@@ -51,7 +51,7 @@ def copyLine(sheet, line, row=0, startCol=0):
         cell = line[col]
         # print(row, col, cell.value)
         new_cell = sheet.cell(row=row+1, column=col+startCol+1, value=cell.value)
-        if cell.has_style:
+        if styles and cell.has_style:
             new_cell.font = copy(cell.font)
             new_cell.border = copy(cell.border)
             new_cell.fill = copy(cell.fill)

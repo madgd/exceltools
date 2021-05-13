@@ -14,13 +14,15 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 import openpyxl
+from copy import copy
 from utils.utils import titleToNumber, filterByList, getCellValues, copyLine, findColNumByName
 from os.path import basename, dirname
 import argparse
 import time
 
 sep = "$\001$"
-def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, sheetNum=1, sheetNameKey="", allSheet=False, *sheetLabels):
+def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, sheetNum=1, \
+                      sheetNameKey="", allSheet=False, styles=False, *sheetLabels):
     """
     输入excel文件路径，按参数拆分excel表，并返回多个文件对象
     :param excelPath: 输入路径
@@ -30,6 +32,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     :param sheetNum: 第几个sheet
     :param sheetNameKey: 按sheet名称的关键词找拆分表，默认为空。
     :param allSheet: 是否根据第一个sheet的拆分依据，自动找到其他表中相应的列，也进行拆分
+    :param styles: 保存原表格式
     :param sheetLabels: 按传入的labels，同时对不同的sheet进行拆分。生成m*n个表。目前不生效
     :return: outputPath
     """
@@ -92,14 +95,29 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     columnDimsBySheet = {}
     # filter
     filterBySheet = {}
+    # freeze
+    freezeBySheet = {}
+    # merge(only support in header)
+    mergedBySheet = {}
+    # zoom
+    viewsBySheet = {}
+
     for sheet in sheets:
         sheetName = sheet.title
-        # validations
-        validationsBySheet[sheetName] = sheet.data_validations.dataValidation
-        # column_dims
-        columnDimsBySheet[sheetName] = sheet.column_dimensions
-        # filter
-        filterBySheet[sheetName] = sheet.auto_filter
+        if styles:
+            # validations
+            validationsBySheet[sheetName] = sheet.data_validations.dataValidation
+            # column_dims
+            columnDimsBySheet[sheetName] = sheet.column_dimensions
+            # filter
+            filterBySheet[sheetName] = sheet.auto_filter
+            # freeze
+            freezeBySheet[sheetName] = sheet.freeze_panes
+            # merged
+            mergedBySheet[sheetName] = sheet.merged_cells
+            # zoom
+            viewsBySheet[sheetName] = sheet.sheet_view
+
         # find cols2splitNum by targetColnames
         tmpHeader = []
         for i in range(headLines):
@@ -139,18 +157,40 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
             curr = 0
             # header
             for line in headerBySheet[sheetName]:
-                copyLine(sheet, line, curr)
+                copyLine(sheet, line, curr, styles=styles)
                 curr += 1
             for line in rowGroupsBySheet[k][sheetName]:
-                copyLine(sheet, line, curr)
+                copyLine(sheet, line, curr, styles=styles)
                 curr += 1
-            # validation
-            sheet.data_validations.dataValidation = validationsBySheet[sheetName]
-            # col_dims
-            sheet.column_dimensions = columnDimsBySheet[sheetName]
-            # filter
-            sheet.auto_filter = filterBySheet[sheetName]
-        # return
+            if styles:
+                # validation
+                sheet.data_validations.dataValidation = validationsBySheet[sheetName]
+                # col_dims
+                for key in columnDimsBySheet[sheetName].keys():
+                    sheet.column_dimensions[key].width = columnDimsBySheet[sheetName][key].width
+                # filter
+                sheet.auto_filter = filterBySheet[sheetName]
+                # freeze
+                sheet.freeze_panes = freezeBySheet[sheetName]
+                # merged
+                sheet.merged_cells = mergedBySheet[sheetName]
+                # zoom
+                sheet.sheet_view.zoomScale = viewsBySheet[sheetName].zoomScale
+
+                # width auto adjust
+                # for col in sheet.columns:
+                #     max_length = 0
+                #     column = col[0].column_letter  # Get the column name
+                #     print(column)
+                #     # Since Openpyxl 2.6, the column name is  ".column_letter" as .column became the column number (1-based)
+                #     for cell in col:
+                #         try:  # Necessary to avoid error on empty cells
+                #             if len(str(cell.value)) > max_length:
+                #                 max_length = len(cell.value)
+                #         except:
+                #             pass
+                #     adjusted_width = (max_length + 2) * 1.2
+                #     sheet.column_dimensions[column].width = adjusted_width
         workbook.save("%s/%s_%s.xlsx" % (outputPath, excelName, k))
 
     return outputPath, err
@@ -170,14 +210,16 @@ if __name__ == '__main__':
                         help='column labels in alphabat to split, multi label sep by ",". default "A"')
     parser.add_argument('-l', metavar='headLines', type=int, default=1,
                         help='header lines, default 1')
-    parser.add_argument('-s', metavar='sheetNum', type=int, default=1,
+    parser.add_argument('-sn', metavar='sheetNum', type=int, default=1,
                         help='which sheet to split, default 1')
     parser.add_argument('-k', metavar='sheetNameKey', type=str, default="",
                         help='which sheet to split, search by key. won`t work if not set')
     parser.add_argument('-a', action='store_true',
                         help='if set, split all sheets. default not')
+    parser.add_argument('-s', action='store_true',
+                        help='if set, keep styles. default not')
     args = parser.parse_args()
 
-    excelSplitBySheet(args.excelPath, args.o, columnLabels=args.c, headLines=args.l, sheetNum=args.s,\
-                      sheetNameKey=args.k ,allSheet=args.a)
+    excelSplitBySheet(args.excelPath, args.o, columnLabels=args.c, headLines=args.l, sheetNum=args.sn,\
+                      sheetNameKey=args.k ,allSheet=args.a, styles=args.s)
     print("split finished!")

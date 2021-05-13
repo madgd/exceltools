@@ -13,8 +13,8 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
 import argparse
-import xlrd, xlwt
-from utils.utils import writeLine, getCellValues, checkEmptyLine
+import openpyxl
+from utils.utils import copyLine, getCellValues, checkEmptyLine
 from os.path import basename, dirname, abspath
 import time
 
@@ -50,12 +50,19 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
     headers = []
     mergedRowsList = []
     sheetNames = []
+    # validation
+    validationsBySheet = []
+    # column_dims
+    columnDimsBySheet = []
+    # filter
+    filterBySheet = []
     for file in files:
         # todo: search files recursively
         if not os.path.isdir("%s/%s" % (absPath, file)):
             if nameKey != "" and nameKey in file or nameKey == "":
                 try:
-                    wb = xlrd.open_workbook(filename="%s/%s" % (absPath, file))
+                    print("%s/%s" % (absPath, file))
+                    wb = openpyxl.load_workbook(filename="%s/%s" % (absPath, file))
                 except: # not excel
                     print("%s not excel" % file)
                     continue
@@ -71,13 +78,13 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
         tmpSheet = []
         if not allSheet:
             # get target sheet
-            tmpSheetNames = wb.sheet_names()
+            tmpSheetNames = wb.sheetnames
             # default
-            targetSheet = wb.sheet_by_index(0)
+            targetSheet = wb[tmpSheetNames[0]]
             # if sheetNum set
             if sheetNum != 1:
                 if type(sheetNum) is int and sheetNum > 1 and sheetNum <= len(tmpSheetNames):
-                    targetSheet = wb.sheet_by_index(sheetNum - 1)
+                    targetSheet = wb[tmpSheetNames[sheetNum - 1]]
                 else:
                     err = "sheetNum err"
                     return file, err
@@ -87,37 +94,39 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
                 for i in range(len(tmpSheetNames)):
                     if sheetNameKey in tmpSheetNames[i]:
                         found = True
-                        targetSheet = wb.sheet_by_index(i)
+                        targetSheet = wb[tmpSheetNames[i]]
                         break
                 if not found:
                     err = "sheetNameKey not found"
                     return file, err
             tmpSheet.append(targetSheet)
         else:
-            tmpSheet = wb.sheets()
+            tmpSheet = wb.worksheets
 
         # process sheets
         for index in range(len(tmpSheet)):
             targetSheet = tmpSheet[index]
             # sheet name
             if index >= len(sheetNames):
-                sheetName = targetSheet.name
+                sheetName = targetSheet.title
                 sheetNames.append(sheetName)
             # sheet header
             if index >= len(headers):
                 tmpHeader = []
                 for i in range(headLines):
-                    tmpHeader.append(getCellValues(targetSheet.row(i)))
+                    tmpHeader.append(targetSheet[i+1])
                 headers.append(tmpHeader)
+                validationsBySheet.append(targetSheet.data_validations.dataValidation)
+                columnDimsBySheet.append(targetSheet.column_dimensions)
+                filterBySheet.append(targetSheet.auto_filter)
             # rows
             if index >= len(mergedRowsList):
                 mergedRowsList.append([])
-            allRows = targetSheet.get_rows()
+            allRows = targetSheet.rows
             for i in range(headLines):
                 next(allRows)
             for row in allRows:
                 mergedRowsList[index].append(row)
-
 
     # rm dup line
     if rmDup:
@@ -138,18 +147,25 @@ def excelMergeBySheet(excelFolder, outputPath="", headLines=1, sheetNum=1, sheet
         excelFolder = excelFolder[:-1]
     rootFolder = abspath(dirname(excelFolder))
     if outputPath == "":
-        outputPath = rootFolder + "/%s_merged_%s.xls" % (excelName, time.strftime("%Y_%m_%d-%H_%M", time.localtime()))
-    workbook = xlwt.Workbook()
+        outputPath = rootFolder + "/%s_merged_%s.xlsx" % (excelName, time.strftime("%Y_%m_%d-%H_%M", time.localtime()))
+    workbook = openpyxl.Workbook()
+    del workbook['Sheet']
     for index in range(len(sheetNames)):
-        sheet = workbook.add_sheet(sheetNames[index])
+        sheet = workbook.create_sheet(sheetNames[index])
+        # validation
+        sheet.data_validations.dataValidation = validationsBySheet[index]
+        # col_dims
+        sheet.column_dimensions = columnDimsBySheet[index]
+        # filter
+        sheet.auto_filter = filterBySheet[index]
         curr = 0
         for line in headers[index]:
-            writeLine(sheet, line, curr)
+            copyLine(sheet, line, curr)
             curr += 1
         for line in mergedRowsList[index]:
             # remove empty line
             if not checkEmptyLine(line):
-                writeLine(sheet, getCellValues(line), curr)
+                copyLine(sheet, line, curr)
                 curr += 1
     workbook.save(outputPath)
 

@@ -13,9 +13,8 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/../")
-import xlrd
-import xlwt
-from utils.utils import titleToNumber, filterByList, getCellValues, writeLine, findColNumByName
+import openpyxl
+from utils.utils import titleToNumber, filterByList, getCellValues, copyLine, findColNumByName
 from os.path import basename, dirname
 import argparse
 import time
@@ -36,19 +35,19 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     """
     err = ""
     # read excel
-    wb = xlrd.open_workbook(filename=excelPath)
+    wb = openpyxl.load_workbook(filename=excelPath)
     excelName = ".".join(basename(excelPath).split(".")[:-1])
     # print(wb.sheet_names())
 
 
     # get target sheet
-    sheetNames = wb.sheet_names()
+    sheetNames = wb.sheetnames
     # default
-    targetSheet = wb.sheet_by_index(0)
+    targetSheet = wb[sheetNames[0]]
     # if sheetNum set
     if sheetNum != 1:
         if type(sheetNum) is int and sheetNum > 1 and sheetNum <= len(sheetNames):
-            targetSheet = wb.sheet_by_index(sheetNum - 1)
+            targetSheet = wb[sheetNames[sheetNum - 1]]
         else:
             err = "sheetNum err"
             return outputPath, err
@@ -58,7 +57,7 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
         for i in range(len(sheetNames)):
             if sheetNameKey in sheetNames[i]:
                 found = True
-                targetSheet = wb.sheet_by_index(i)
+                targetSheet = wb[sheetNames[i]]
                 break
         if not found:
             err = "sheetNameKey not found"
@@ -69,37 +68,48 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
     # sheet header
     header = []
     for i in range(headLines):
-        header.append(getCellValues(targetSheet.row(i)))
-    # print(header)
-
+        header.append(targetSheet[i+1])
+        # header.append(getCellValues(targetSheet.row(i)))
 
     # split by cols
     # find colnames
     cols2split = columnLabels.split(",")
     cols2splitNum = [titleToNumber(i) - 1 for i in cols2split]
-    targetColnames = filterByList(header[-1], cols2splitNum)
-    # print(targetColnames)
+    targetColNames = filterByList(header[-1], cols2splitNum)
+    # print(targetColNames)
     # print(findColNumByName(header[-1], targetColnames))
     sheets = [targetSheet]
     # if split all sheet
     if allSheet:
-        sheets = wb.sheets()
+        sheets = wb.worksheets
     else:
-        sheetNames = [targetSheet.name]
+        sheetNames = [targetSheet.title]
     rowGroupsBySheet = {}
     headerBySheet = {}
+    # validations
+    validationsBySheet = {}
+    # column_dims
+    columnDimsBySheet = {}
+    # filter
+    filterBySheet = {}
     for sheet in sheets:
-        sheetName = sheet.name
+        sheetName = sheet.title
+        # validations
+        validationsBySheet[sheetName] = sheet.data_validations.dataValidation
+        # column_dims
+        columnDimsBySheet[sheetName] = sheet.column_dimensions
+        # filter
+        filterBySheet[sheetName] = sheet.auto_filter
         # find cols2splitNum by targetColnames
         tmpHeader = []
         for i in range(headLines):
-            tmpHeader.append(getCellValues(sheet.row(i)))
+            tmpHeader.append((sheet[i+1]))
         # print(tmpHeader)
         headerBySheet[sheetName] = tmpHeader
-        tmpCols2splitNum = findColNumByName(tmpHeader[-1], targetColnames)
+        tmpCols2splitNum = findColNumByName(tmpHeader[-1], targetColNames)
         # print(tmpCols2splitNum)
-        #
-        allRows = sheet.get_rows()
+
+        allRows = sheet.rows
         for i in range(headLines):
             next(allRows)
         for row in allRows:
@@ -113,26 +123,35 @@ def excelSplitBySheet(excelPath, outputPath='', columnLabels="A", headLines=1, s
                 rowGroupsBySheet[dicKey] = {sheetName: [row]}
 
 
+
     # save output excels
     if outputPath == "":
         outputPath = dirname(excelPath) + "/%s_split_%s" % (excelName, time.strftime("%Y_%m_%d-%H_%M", time.localtime()))
     if not os.path.exists(outputPath):
         os.mkdir(outputPath)
     for k in rowGroupsBySheet:
-        workbook = xlwt.Workbook()
+        workbook = openpyxl.Workbook()
+        del workbook['Sheet']
         for sheetName in sheetNames:
-            sheet = workbook.add_sheet(sheetName)
+            sheet = workbook.create_sheet(sheetName)
             if sheetName not in rowGroupsBySheet[k]:
                 rowGroupsBySheet[k][sheetName] = []
             curr = 0
             # header
             for line in headerBySheet[sheetName]:
-                writeLine(sheet, line, curr)
+                copyLine(sheet, line, curr)
                 curr += 1
             for line in rowGroupsBySheet[k][sheetName]:
-                writeLine(sheet, getCellValues(line), curr)
+                copyLine(sheet, line, curr)
                 curr += 1
-        workbook.save("%s/%s_%s.xls" % (outputPath, excelName, k))
+            # validation
+            sheet.data_validations.dataValidation = validationsBySheet[sheetName]
+            # col_dims
+            sheet.column_dimensions = columnDimsBySheet[sheetName]
+            # filter
+            sheet.auto_filter = filterBySheet[sheetName]
+        # return
+        workbook.save("%s/%s_%s.xlsx" % (outputPath, excelName, k))
 
     return outputPath, err
 
